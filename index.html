@@ -186,7 +186,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://erictanghulu.github.io/2021/10/25/demo2/">
+    <link itemprop="mainEntityOfPage" href="http://erictanghulu.github.io/2021/10/26/RMI%20%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%20dd644916349848a0b8c4ef825b656560/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -200,7 +200,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/10/25/demo2/" class="post-title-link" itemprop="url">demo2</a>
+            <a href="/2021/10/26/RMI%20%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%20dd644916349848a0b8c4ef825b656560/" class="post-title-link" itemprop="url">RMI反序列化分析</a>
         </h2>
 
         <div class="post-meta">
@@ -209,8 +209,18 @@
                 <i class="fa fa-calendar-o"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
+              
 
-              <time title="Created: 2021-10-25 17:17:08" itemprop="dateCreated datePublished" datetime="2021-10-25T17:17:08+08:00">2021-10-25</time>
+              <time title="Created: 2021-10-26 11:38:48 / Modified: 11:45:17" itemprop="dateCreated datePublished" datetime="2021-10-26T11:38:48+08:00">2021-10-26</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/" itemprop="url" rel="index"><span itemprop="name">反序列化</span></a>
+                </span>
             </span>
 
           
@@ -224,7 +234,23 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          
+          <blockquote>
+<p>本文分析了RMI的通信过程以及一些反序列化攻击的场景</p>
+</blockquote>
+<h2 id="1、RMI是什么"><a href="#1、RMI是什么" class="headerlink" title="1、RMI是什么"></a>1、RMI是什么</h2><p>RMI(Remote Method Invocatio)，是一种跨JVM实现方法调用的技术。一般由三个部分组成</p>
+<ul>
+<li>Client(客户端) Registry取得服务端注册的服务，然后调用远程方法  <figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Connect to RMI Registry :localhost:1099</span></span><br><span class="line">Registry registry = LocateRegistry.getRegistry(<span class="string">&quot;localhost&quot;</span>, <span class="number">1099</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// search service which called evil and cast type to EvilService</span></span><br><span class="line">EvilService evilService = (EvilService) registry.lookup(<span class="string">&quot;evil&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">//call evil method and need to call &quot;put&quot; function to trigger</span></span><br><span class="line"><span class="comment">//evilTransformerMap方法具体的执行逻辑是在服务端执行的，并返回结果给client</span></span><br><span class="line">Map evilObject = (Map)evilService.evilTransformerMap();</span><br></pre></td></tr></table></figure>
+</li>
+<li>Registry(注册中心) 可以理解成一个存储远程对象的字典，负责网络传输的模块</li>
+</ul>
+          <!--noindex-->
+            <div class="post-button">
+              <a class="btn" href="/2021/10/26/RMI%20%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%20dd644916349848a0b8c4ef825b656560/#more" rel="contents">
+                Read more &raquo;
+              </a>
+            </div>
+          <!--/noindex-->
+        
       
     </div>
 
