@@ -17,7 +17,7 @@
 
 <script id="hexo-configurations">
     var NexT = window.NexT || {};
-    var CONFIG = {"hostname":"erictanghulu.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+    var CONFIG = {"hostname":"erictanghulu.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
   </script>
 
   <meta name="description" content="Life is fantastic">
@@ -102,6 +102,7 @@
 
   <div class="site-nav-right">
     <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
     </div>
   </div>
 </div>
@@ -131,11 +132,38 @@
     <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>Archives</a>
 
   </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
   </ul>
 </nav>
 
 
 
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
 
 </div>
     </header>
@@ -158,7 +186,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://erictanghulu.github.io/2021/10/25/Analyze-Java-deserialization-through-Apache-Common-collections/">
+    <link itemprop="mainEntityOfPage" href="http://erictanghulu.github.io/2021/10/25/demo2/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -172,7 +200,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/10/25/Analyze-Java-deserialization-through-Apache-Common-collections/" class="post-title-link" itemprop="url">Analyze_Java_deserialization_through_Apache_Common-collections</a>
+            <a href="/2021/10/25/demo2/" class="post-title-link" itemprop="url">demo2</a>
         </h2>
 
         <div class="post-meta">
@@ -181,9 +209,8 @@
                 <i class="fa fa-calendar-o"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
-              
 
-              <time title="Created: 2021-10-25 11:13:20 / Modified: 11:18:17" itemprop="dateCreated datePublished" datetime="2021-10-25T11:13:20+08:00">2021-10-25</time>
+              <time title="Created: 2021-10-25 17:17:08" itemprop="dateCreated datePublished" datetime="2021-10-25T17:17:08+08:00">2021-10-25</time>
             </span>
 
           
@@ -197,8 +224,7 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <p><img src="/.io//Untitled.png" alt="test"></p>
-
+          
       
     </div>
 
@@ -217,7 +243,7 @@
   
   
   <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
-    <link itemprop="mainEntityOfPage" href="http://erictanghulu.github.io/2021/10/20/%E9%80%9A%E8%BF%87Apache%20Common-collections%E5%88%86%E6%9E%90Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/">
+    <link itemprop="mainEntityOfPage" href="http://erictanghulu.github.io/2021/10/25/%E9%80%9A%E8%BF%87Apache%20Common-collections%E5%88%86%E6%9E%90Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%20a077483736be4fc9b4c0a7638e574c4b/">
 
     <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
       <meta itemprop="image" content="/images/avatar.gif">
@@ -231,7 +257,7 @@
       <header class="post-header">
         <h2 class="post-title" itemprop="name headline">
           
-            <a href="/2021/10/20/%E9%80%9A%E8%BF%87Apache%20Common-collections%E5%88%86%E6%9E%90Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/" class="post-title-link" itemprop="url">通过Apache Common-collections分析Java反序列化</a>
+            <a href="/2021/10/25/%E9%80%9A%E8%BF%87Apache%20Common-collections%E5%88%86%E6%9E%90Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%20a077483736be4fc9b4c0a7638e574c4b/" class="post-title-link" itemprop="url">通过Apache Common-collections分析Java反序列化</a>
         </h2>
 
         <div class="post-meta">
@@ -240,23 +266,17 @@
                 <i class="fa fa-calendar-o"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
+              
 
-              <time title="Created: 2021-10-20 16:06:19" itemprop="dateCreated datePublished" datetime="2021-10-20T16:06:19+08:00">2021-10-20</time>
+              <time title="Created: 2021-10-25 11:13:20 / Modified: 17:07:32" itemprop="dateCreated datePublished" datetime="2021-10-25T11:13:20+08:00">2021-10-25</time>
             </span>
-              <span class="post-meta-item">
-                <span class="post-meta-item-icon">
-                  <i class="fa fa-calendar-check-o"></i>
-                </span>
-                <span class="post-meta-item-text">Edited on</span>
-                <time title="Modified: 2021-10-22 20:05:17" itemprop="dateModified" datetime="2021-10-22T20:05:17+08:00">2021-10-22</time>
-              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="fa fa-folder-o"></i>
               </span>
               <span class="post-meta-item-text">In</span>
                 <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
-                  <a href="/categories/Java%E5%AE%89%E5%85%A8/" itemprop="url" rel="index"><span itemprop="name">Java安全</span></a>
+                  <a href="/categories/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/" itemprop="url" rel="index"><span itemprop="name">反序列化</span></a>
                 </span>
             </span>
 
@@ -271,18 +291,10 @@
     <div class="post-body" itemprop="articleBody">
 
       
-          <hr>
-<p>PS : cc1(CC3.1+AnnotationInvocationHandler)</p>
-<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a><strong>前言</strong></h2><p>本文将通过<font color="Blue"> Apache Commons-collections</font>爆出的反序列化漏洞来作为例子进行原理分析。</p>
-<h2 id="漏洞成因"><a href="#漏洞成因" class="headerlink" title="漏洞成因"></a><strong>漏洞成因</strong></h2><p>在这个Java反序列化漏洞的利用链主要由三个部分组成</p>
-<p>1、可以执行恶意代码的对象（在这个例子中即为Commons-collection中的Transformer类）</p>
-<p>2、一个被恶意对象“寄生的宿主”，通俗的来说就是，宿主对象反序列化的时候因为需要执行readObject方法，而<strong>readObject</strong>方法在可以被序列化的类中需要被重写，重写后的方法可能存在某些能够触发恶意对象执行的操作。</p>
-<p>3、需要一个能够将恶意对象进行包装的类。在有的情况下恶意对象没有办法直接‘寄生“在宿主上，这时候就需要一个类能够将恶意对象进行包装</p>
-<p>在这个例子中恶意代码对象为<strong>Commons</strong>-<strong>collection</strong>中的<strong>Transformer</strong>类，这个类原本的设计是用来对类进行转换，而通过精心设计（后文会详细讲解）后能够通过这个类的transform方法实现命令执行。而被寄生的宿主为<strong>AnnotationInvocationHandlerMap</strong>类，通过其readObject方法能够触发漏洞。而AnnotationInvocationHandlerMap类中有一个Map类型的成员变量memberValues，Transformer类可以通过用Map类包装寄生在AnnotationInvocationHandlerMap类</p>
-<p>接下来会分为两个部分解释，即1如何通过transfomer进行命令执行，2是如何利用反序列化完成一个调用链</p>
+          <p>本文将通过Apache Commons-collections爆出的反序列化漏洞来作为例子进行Java反序列化的原理分析</p>
           <!--noindex-->
             <div class="post-button">
-              <a class="btn" href="/2021/10/20/%E9%80%9A%E8%BF%87Apache%20Common-collections%E5%88%86%E6%9E%90Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/#more" rel="contents">
+              <a class="btn" href="/2021/10/25/%E9%80%9A%E8%BF%87Apache%20Common-collections%E5%88%86%E6%9E%90Java%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%20a077483736be4fc9b4c0a7638e574c4b/">
                 Read more &raquo;
               </a>
             </div>
@@ -421,8 +433,6 @@
   </span>
   <span class="author" itemprop="copyrightHolder">LittleT1gger</span>
 </div>
-  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
-  </div>
 
         
 
@@ -458,6 +468,10 @@
   
 
 
+
+
+  
+<script src="/js/local-search.js"></script>
 
 
 
