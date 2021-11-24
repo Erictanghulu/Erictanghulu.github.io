@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+<link rel="stylesheet" href="//fonts.googleapis.com/css?family=Open Sans:300,300italic,400,400italic,700,700italic&display=swap&subset=latin,latin-ext">
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"erictanghulu.github.io","root":"/","scheme":"Muse","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"always","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":true,"show_result":true,"style":"mac"},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":true,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}},"path":"search.xml"};
+  </script>
+
+  <meta name="description" content="最早知道这个漏洞的时候并没有特别详细去分析，只是了解了一下大概的机制，后来机缘巧合又看到了一些相关文章，发现其中一些对漏洞的分析与我之前的想法有偏差，发现网上大部分的分析文章容易让人云里雾里，有的也有一些错误分析。遂找了点时间详细学习学习这个漏洞。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="shiro721&#x2F;550反序列化漏洞分析">
+<meta property="og:url" content="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/index.html">
+<meta property="og:site_name" content="Veritas">
+<meta property="og:description" content="最早知道这个漏洞的时候并没有特别详细去分析，只是了解了一下大概的机制，后来机缘巧合又看到了一些相关文章，发现其中一些对漏洞的分析与我之前的想法有偏差，发现网上大部分的分析文章容易让人云里雾里，有的也有一些错误分析。遂找了点时间详细学习学习这个漏洞。">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled.png">
+<meta property="og:image" content="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled1.png">
+<meta property="og:image" content="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled2.png">
+<meta property="og:image" content="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled3.png">
+<meta property="og:image" content="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled4.png">
+<meta property="og:image" content="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled5.png">
+<meta property="og:image" content="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled6.png">
+<meta property="og:image" content="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled7.png">
+<meta property="article:published_time" content="2021-11-24T07:30:07.000Z">
+<meta property="article:modified_time" content="2021-11-24T07:51:04.006Z">
+<meta property="article:author" content="Veritas">
+<meta property="article:tag" content="Java安全">
+<meta property="article:tag" content="反序列化">
+<meta property="article:tag" content="shiro">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled.png">
+
+<link rel="canonical" href="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+
+  <title>shiro721/550反序列化漏洞分析 | Veritas</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">Veritas</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">This is a subtitle</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+        <i class="fa fa-search fa-fw fa-lg"></i>
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>Home</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>Tags</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>Categories</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>Archives</a>
+
+  </li>
+      <li class="menu-item menu-item-search">
+        <a role="button" class="popup-trigger"><i class="fa fa-search fa-fw"></i>Search
+        </a>
+      </li>
+  </ul>
+</nav>
+
+
+
+  <div class="search-pop-overlay">
+    <div class="popup search-popup">
+        <div class="search-header">
+  <span class="search-icon">
+    <i class="fa fa-search"></i>
+  </span>
+  <div class="search-input-container">
+    <input autocomplete="off" autocapitalize="off"
+           placeholder="Searching..." spellcheck="false"
+           type="search" class="search-input">
+  </div>
+  <span class="popup-btn-close">
+    <i class="fa fa-times-circle"></i>
+  </span>
+</div>
+<div id="search-result">
+  <div id="no-result">
+    <i class="fa fa-spinner fa-pulse fa-5x fa-fw"></i>
+  </div>
+</div>
+
+    </div>
+  </div>
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Veritas">
+      <meta itemprop="description" content="Life is fantastic">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Veritas">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          shiro721/550反序列化漏洞分析
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">Posted on</span>
+              
+
+              <time title="Created: 2021-11-24 15:30:07 / Modified: 15:51:04" itemprop="dateCreated datePublished" datetime="2021-11-24T15:30:07+08:00">2021-11-24</time>
+            </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">In</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/" itemprop="url" rel="index"><span itemprop="name">漏洞分析</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <blockquote>
+<p><strong>最早知道这个漏洞的时候并没有特别详细去分析，只是了解了一下大概的机制，后来机缘巧合又看到了一些相关文章，发现其中一些对漏洞的分析与我之前的想法有偏差，发现网上大部分的分析文章容易让人云里雾里，有的也有一些错误分析。遂找了点时间详细学习学习这个漏洞。</strong></p>
+</blockquote>
+<span id="more"></span>
+
+<h3 id="1、原理"><a href="#1、原理" class="headerlink" title="1、原理"></a>1、原理</h3><p>shiro框架有rememberMe功能，启用该功能后，用户登陆成功后就会生成经过加密并编码的cookie，服务端接收这个cookie后会对其进行Base64解码，然后再进行AES解密，如果正确解密会对其进行反序列化(任意命令执行点)。这个流程中最重要的点就是如何让我们构造的恶意cookie被成功解密。正常情况下我们需要知道服务端用于解密的AES密钥，这样我们才能构造一个能够被解密的cookie。Shiro 1.2.4及之前的版本中AES是被硬编码的，在1.2.4之后的版本中AES默认密钥被移除，如果开发者没有设置则会采用动态生成的策略。</p>
+<p>服务段处理cookie流程图</p>
+<p><img src="/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled.png" alt="Untitled"></p>
+<h3 id="2、目的"><a href="#2、目的" class="headerlink" title="2、目的"></a>2、目的</h3><p>从原理中我们得知利用这个反序列化漏洞的最重要一步是获得密钥,一种方法是收集网上公开集成shiro框架或者快速搭建shiro教程中使用的密钥，开发者很可能会直接复制这些项目中的配置文件。但我们换一个思路想，其实我们只是需要一个能够被成功解密的恶意cookie即可，由于Shiro的cookie采用了CBC的加密模式，所以可以采用padding oracle进行攻击利用，而不需要key。</p>
+<h2 id="3、Padding-Oracle"><a href="#3、Padding-Oracle" class="headerlink" title="3、Padding Oracle"></a>3、Padding Oracle</h2><h3 id="3-1-CBC加密流程"><a href="#3-1-CBC加密流程" class="headerlink" title="3.1 CBC加密流程"></a>3.1 CBC加密流程</h3><p>Padding Oracle是针对CBC加密模式的一种攻击方式，所以首先要了解一下CBC的加密过程</p>
+<p><img src="/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled1.png" alt="Untitled"></p>
+<p>1、首先根据加密算法会对明文进行分组，Padding指的是在CBC加密数据时，由于明文长度可能并非是组数的倍数，因此在最后一组中需要有一部分填充的数据。如果需要填充一个字节则添加0x01，两个则是0x02 0x02以此类推，如果明文长度正好是分组的倍数则也需要进行填充，比如分组的长度是8个字节也需要填充8个0x08，也就是正好填充出一组。</p>
+<p><img src="/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled2.png" alt="Untitled"></p>
+<p>2、分组后随机生成一个初始向量(<code>Initialization</code> <code>Vector</code>)，将第一组明文与IV作异或运算，对得到的结果再进行加密得到密文(<code>Ciphertext</code>)</p>
+<p>3、从第二个明文分组开始，先将明文分组与上一组的密文作异或运算，再将结果进行加密，得到该分组的密文</p>
+<h3 id="3-2-解密流程"><a href="#3-2-解密流程" class="headerlink" title="3.2 解密流程"></a>3.2 解密流程</h3><p><img src="/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled3.png" alt="Untitled"></p>
+<p>解密的时候也同样会对密文进行分组解密，可以看到每组明文都是由其对应的密文解密后并且和上一组的密文进行异或运算后得到的，也就是说实际上每组明文的解密是可以并行的。</p>
+<p>我们以上图中的解密流程为例的话，密文串就是从左到右拼接得<code>IV+C1+C2+C3</code>。明文从左到右为<code>P1+P2+P3</code>。假设密文通过<code>block cipher decryption</code> 后的中间值为I，那么P3即可由M3与C2异或后得到。如果我们能够得到I3的值并且由于C2是已知的就能够获取P3的值。那么重点就来到了如何获取I3上。</p>
+<p>一种方法是通过获取Key，由于shiro是开源的项目，加密方式已知，所以可以直接将C3直接解密得到I3，在早期版本的shiro中Key是硬编码的，后期改为动态生成了，所以这种方法变得不再适用了（部分安全意识薄弱的开发人员可能在设置Key的同时copy了网上一些公开的Key，可以收集一些Key做爆破，但很明显大部分情况下这种方式很难行得通）。</p>
+<h3 id="3-3-利用Padding-oracle爆破"><a href="#3-3-利用Padding-oracle爆破" class="headerlink" title="3.3 利用Padding oracle爆破"></a>3.3 利用Padding oracle爆破</h3><p>我们之前已经介绍了CBC模式的填充机制，padding oracle 的关键就在于其利用了服务端对数据进行解密发现填充错误时会返回padding error，而如果填充正确则会返回解密失败(比如登陆失败)。</p>
+<p><img src="/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled4.png" alt="Untitled"></p>
+<p>举例来说，假设有密文串IV+C1 为 0000000000000000 F851D6CC68FC9537，IV为我们进行构造的，而C1为我们抓到的真实密文，将其组合发送给服务器进行解密。服务器将C1用对应的解密算法先将C1转换为I1也就是 39732322076a263D(这部分数值对攻击者是不可见的)。I1与IV异或运算以后得到P1(Decrypted Value 同样对于我们不可见)，由于IV是我们任意构造的，所以明文P1大概率是错误的，并且由于他需要满足填充规则，所以解密后会爆出填充错误。</p>
+<p><img src="/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled5.png" alt="Untitled"></p>
+<p>根据这个特点，我们通过尝试修改IV的最后一个字节不断尝试后发送给服务器进行尝试解密，假设当发送0x3C时服务器不会返回填充错误，那么我们便可以推出此时P1的最后一个字节为0x01，符合了填充规则，进而推出I1最后一个字节的值为0x3D。</p>
+<p><img src="/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled6.png" alt="Untitled"></p>
+<p>那既然知道了I1最后一个字节的值，我们可以通过调整IV来让P1的最后一个字节变成0x02，通过同样的方式不断尝试修改IV的倒数第二个字节，使P1的倒数第二个字节成为0x02，以此来推断出I1倒数第二个字节的值，以此类推我们可以爆破出I1每一个字节对应的值</p>
+<p><img src="/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled7.png" alt="Untitled"></p>
+<p>当得到I1的值以后我们就相当于可以通过控制IV的值来构造恶意payload给服务器了。这里只举例了IV+C1这样两个分组的加密数据情况，用相同的原理我们可以拓展到如现在有密文= IV+C1+C2。这种情况下我们通过修改C1为C1<em>，给服务器发送C1</em>+C2来不断尝试爆破C2对应的I2。获得I2后，根据I2就可以确定一个C1<em>的值来使对应明文P2为我们想要的值。C1</em>确定继续以此类推通过不断修改IV发送IV*+C1*(此时C1<em>已经确定)给服务器来确定C1</em>对应的I1的值。同理也就可以控制明文P1的值了，对于更多分组也是如此，这样就完成了对明文内容的控制了。即可以构造恶意的Java对象对服务器进行攻击了。</p>
+<h2 id="4、总结"><a href="#4、总结" class="headerlink" title="4、总结"></a>4、总结</h2><p>其实整个漏洞的流程很简单，利用padding oracle 机制进行爆破是这个漏洞比较值得研究学习的的地方。</p>
+<h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p>[<a target="_blank" rel="noopener" href="https://www.cnblogs.com/wh4am1/p/12761959.html]">https://www.cnblogs.com/wh4am1/p/12761959.html]</a>(</p>
+<p><a target="_blank" rel="noopener" href="https://paper.seebug.org/1503/#22-aes">Shiro 反序列化漏洞利用工具编写思路</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Java%E5%AE%89%E5%85%A8/" rel="tag"># Java安全</a>
+              <a href="/tags/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/" rel="tag"># 反序列化</a>
+              <a href="/tags/shiro/" rel="tag"># shiro</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2021/11/18/Fastjson(%E4%B8%80)-%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86%2022cba1e1a9d34336a70b7cf31c47616f/" rel="prev" title="Fastjson历史漏洞分析(一)--基础知识">
+      <i class="fa fa-chevron-left"></i> Fastjson历史漏洞分析(一)--基础知识
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2021/11/24/shiro%E6%9D%83%E9%99%90%E7%BB%95%E8%BF%87%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90(cve-2020-1957)%2044c7b9659aae4c5b8b4ba72bbd3268e8/" rel="next" title="shiro权限绕过漏洞分析(cve-2020-1957)">
+      shiro权限绕过漏洞分析(cve-2020-1957) <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E5%8E%9F%E7%90%86"><span class="nav-text">1、原理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E7%9B%AE%E7%9A%84"><span class="nav-text">2、目的</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3%E3%80%81Padding-Oracle"><span class="nav-text">3、Padding Oracle</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-CBC%E5%8A%A0%E5%AF%86%E6%B5%81%E7%A8%8B"><span class="nav-text">3.1 CBC加密流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E8%A7%A3%E5%AF%86%E6%B5%81%E7%A8%8B"><span class="nav-text">3.2 解密流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E5%88%A9%E7%94%A8Padding-oracle%E7%88%86%E7%A0%B4"><span class="nav-text">3.3 利用Padding oracle爆破</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-text">4、总结</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-text">参考</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="Veritas"
+      src="/images/avatar.gif">
+  <p class="site-author-name" itemprop="name">Veritas</p>
+  <div class="site-description" itemprop="description">Life is fantastic</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">7</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">categories</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">4</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://github.com/erictanghulu" title="GitHub → https:&#x2F;&#x2F;github.com&#x2F;erictanghulu" rel="noopener" target="_blank"><i class="fab fa-github fa-fw"></i>GitHub</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Veritas</span>
+</div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+  
+<script src="/js/local-search.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
