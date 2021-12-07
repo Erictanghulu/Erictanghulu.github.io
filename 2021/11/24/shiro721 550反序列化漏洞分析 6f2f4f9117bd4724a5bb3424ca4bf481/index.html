@@ -36,7 +36,7 @@
 <meta property="og:image" content="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled6.png">
 <meta property="og:image" content="http://erictanghulu.github.io/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled7.png">
 <meta property="article:published_time" content="2021-11-24T07:30:07.000Z">
-<meta property="article:modified_time" content="2021-11-24T07:51:04.006Z">
+<meta property="article:modified_time" content="2021-11-24T17:11:08.348Z">
 <meta property="article:author" content="Veritas">
 <meta property="article:tag" content="Java安全">
 <meta property="article:tag" content="反序列化">
@@ -223,10 +223,16 @@
                 <i class="far fa-calendar"></i>
               </span>
               <span class="post-meta-item-text">Posted on</span>
-              
 
-              <time title="Created: 2021-11-24 15:30:07 / Modified: 15:51:04" itemprop="dateCreated datePublished" datetime="2021-11-24T15:30:07+08:00">2021-11-24</time>
+              <time title="Created: 2021-11-24 15:30:07" itemprop="dateCreated datePublished" datetime="2021-11-24T15:30:07+08:00">2021-11-24</time>
             </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">Edited on</span>
+                <time title="Modified: 2021-11-25 01:11:08" itemprop="dateModified" datetime="2021-11-25T01:11:08+08:00">2021-11-25</time>
+              </span>
             <span class="post-meta-item">
               <span class="post-meta-item-icon">
                 <i class="far fa-folder"></i>
@@ -253,10 +259,10 @@
 </blockquote>
 <span id="more"></span>
 
-<h3 id="1、原理"><a href="#1、原理" class="headerlink" title="1、原理"></a>1、原理</h3><p>shiro框架有rememberMe功能，启用该功能后，用户登陆成功后就会生成经过加密并编码的cookie，服务端接收这个cookie后会对其进行Base64解码，然后再进行AES解密，如果正确解密会对其进行反序列化(任意命令执行点)。这个流程中最重要的点就是如何让我们构造的恶意cookie被成功解密。正常情况下我们需要知道服务端用于解密的AES密钥，这样我们才能构造一个能够被解密的cookie。Shiro 1.2.4及之前的版本中AES是被硬编码的，在1.2.4之后的版本中AES默认密钥被移除，如果开发者没有设置则会采用动态生成的策略。</p>
+<h2 id="1、原理"><a href="#1、原理" class="headerlink" title="1、原理"></a>1、原理</h2><p>shiro框架有rememberMe功能，启用该功能后，用户登陆成功后就会生成经过加密并编码的cookie，服务端接收这个cookie后会对其进行Base64解码，然后再进行AES解密，如果正确解密会对其进行反序列化(任意命令执行点)。这个流程中最重要的点就是如何让我们构造的恶意cookie被成功解密。正常情况下我们需要知道服务端用于解密的AES密钥，这样我们才能构造一个能够被解密的cookie。Shiro 1.2.4及之前的版本中AES是被硬编码的，在1.2.4之后的版本中AES默认密钥被移除，如果开发者没有设置则会采用动态生成的策略。</p>
 <p>服务段处理cookie流程图</p>
 <p><img src="/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled.png" alt="Untitled"></p>
-<h3 id="2、目的"><a href="#2、目的" class="headerlink" title="2、目的"></a>2、目的</h3><p>从原理中我们得知利用这个反序列化漏洞的最重要一步是获得密钥,一种方法是收集网上公开集成shiro框架或者快速搭建shiro教程中使用的密钥，开发者很可能会直接复制这些项目中的配置文件。但我们换一个思路想，其实我们只是需要一个能够被成功解密的恶意cookie即可，由于Shiro的cookie采用了CBC的加密模式，所以可以采用padding oracle进行攻击利用，而不需要key。</p>
+<h2 id="2、目的"><a href="#2、目的" class="headerlink" title="2、目的"></a>2、目的</h2><p>从原理中我们得知利用这个反序列化漏洞的最重要一步是获得密钥,一种方法是收集网上公开集成shiro框架或者快速搭建shiro教程中使用的密钥，开发者很可能会直接复制这些项目中的配置文件。但我们换一个思路想，其实我们只是需要一个能够被成功解密的恶意cookie即可，由于Shiro的cookie采用了CBC的加密模式，所以可以采用padding oracle进行攻击利用，而不需要key。</p>
 <h2 id="3、Padding-Oracle"><a href="#3、Padding-Oracle" class="headerlink" title="3、Padding Oracle"></a>3、Padding Oracle</h2><h3 id="3-1-CBC加密流程"><a href="#3-1-CBC加密流程" class="headerlink" title="3.1 CBC加密流程"></a>3.1 CBC加密流程</h3><p>Padding Oracle是针对CBC加密模式的一种攻击方式，所以首先要了解一下CBC的加密过程</p>
 <p><img src="/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled1.png" alt="Untitled"></p>
 <p>1、首先根据加密算法会对明文进行分组，Padding指的是在CBC加密数据时，由于明文长度可能并非是组数的倍数，因此在最后一组中需要有一部分填充的数据。如果需要填充一个字节则添加0x01，两个则是0x02 0x02以此类推，如果明文长度正好是分组的倍数则也需要进行填充，比如分组的长度是8个字节也需要填充8个0x08，也就是正好填充出一组。</p>
@@ -275,7 +281,7 @@
 <p><img src="/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled6.png" alt="Untitled"></p>
 <p>那既然知道了I1最后一个字节的值，我们可以通过调整IV来让P1的最后一个字节变成0x02，通过同样的方式不断尝试修改IV的倒数第二个字节，使P1的倒数第二个字节成为0x02，以此来推断出I1倒数第二个字节的值，以此类推我们可以爆破出I1每一个字节对应的值</p>
 <p><img src="/2021/11/24/shiro721%20550%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90%206f2f4f9117bd4724a5bb3424ca4bf481/Untitled7.png" alt="Untitled"></p>
-<p>当得到I1的值以后我们就相当于可以通过控制IV的值来构造恶意payload给服务器了。这里只举例了IV+C1这样两个分组的加密数据情况，用相同的原理我们可以拓展到如现在有密文= IV+C1+C2。这种情况下我们通过修改C1为C1<em>，给服务器发送C1</em>+C2来不断尝试爆破C2对应的I2。获得I2后，根据I2就可以确定一个C1<em>的值来使对应明文P2为我们想要的值。C1</em>确定继续以此类推通过不断修改IV发送IV*+C1*(此时C1<em>已经确定)给服务器来确定C1</em>对应的I1的值。同理也就可以控制明文P1的值了，对于更多分组也是如此，这样就完成了对明文内容的控制了。即可以构造恶意的Java对象对服务器进行攻击了。</p>
+<p>当得到I1的值以后我们就相当于可以通过控制IV的值来构造恶意payload给服务器了。这里只举例了IV+C1这样两个分组的加密数据情况，用相同的原理我们可以拓展到如现在有密文= IV+C1+C2。这种情况下我们通过修改C1为C1*，给服务器发送C1*+C2来不断尝试爆破C2对应的I2。获得I2后，根据I2就可以确定一个C1*的值来使对应明文P2为我们想要的值。C1*确定继续以此类推通过不断修改IV发送IV*+C1*(此时C1*已经确定)给服务器来确定C1*对应的I1的值。同理也就可以控制明文P1的值了，对于更多分组也是如此，这样就完成了对明文内容的控制了。即可以构造恶意的Java对象对服务器进行攻击了。</p>
 <h2 id="4、总结"><a href="#4、总结" class="headerlink" title="4、总结"></a>4、总结</h2><p>其实整个漏洞的流程很简单，利用padding oracle 机制进行爆破是这个漏洞比较值得研究学习的的地方。</p>
 <h3 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h3><p>[<a target="_blank" rel="noopener" href="https://www.cnblogs.com/wh4am1/p/12761959.html]">https://www.cnblogs.com/wh4am1/p/12761959.html]</a>(</p>
 <p><a target="_blank" rel="noopener" href="https://paper.seebug.org/1503/#22-aes">Shiro 反序列化漏洞利用工具编写思路</a></p>
@@ -364,7 +370,7 @@
 
       <!--noindex-->
       <div class="post-toc-wrap sidebar-panel">
-          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-3"><a class="nav-link" href="#1%E3%80%81%E5%8E%9F%E7%90%86"><span class="nav-text">1、原理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#2%E3%80%81%E7%9B%AE%E7%9A%84"><span class="nav-text">2、目的</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3%E3%80%81Padding-Oracle"><span class="nav-text">3、Padding Oracle</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-CBC%E5%8A%A0%E5%AF%86%E6%B5%81%E7%A8%8B"><span class="nav-text">3.1 CBC加密流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E8%A7%A3%E5%AF%86%E6%B5%81%E7%A8%8B"><span class="nav-text">3.2 解密流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E5%88%A9%E7%94%A8Padding-oracle%E7%88%86%E7%A0%B4"><span class="nav-text">3.3 利用Padding oracle爆破</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-text">4、总结</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-text">参考</span></a></li></ol></div>
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#1%E3%80%81%E5%8E%9F%E7%90%86"><span class="nav-text">1、原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#2%E3%80%81%E7%9B%AE%E7%9A%84"><span class="nav-text">2、目的</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#3%E3%80%81Padding-Oracle"><span class="nav-text">3、Padding Oracle</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#3-1-CBC%E5%8A%A0%E5%AF%86%E6%B5%81%E7%A8%8B"><span class="nav-text">3.1 CBC加密流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-2-%E8%A7%A3%E5%AF%86%E6%B5%81%E7%A8%8B"><span class="nav-text">3.2 解密流程</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#3-3-%E5%88%A9%E7%94%A8Padding-oracle%E7%88%86%E7%A0%B4"><span class="nav-text">3.3 利用Padding oracle爆破</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#4%E3%80%81%E6%80%BB%E7%BB%93"><span class="nav-text">4、总结</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-text">参考</span></a></li></ol></li></ol></div>
       </div>
       <!--/noindex-->
 
